@@ -1,0 +1,25 @@
+{
+  "max_len": 256,
+  "max_words": 20000,
+  "vocab_size": 20000,
+  "oov_token": "<OOV>",
+  "remove_stopwords": true,
+  "keep_tokens": [
+    "against",
+    "cannot",
+    "how",
+    "n't",
+    "never",
+    "no",
+    "none",
+    "nor",
+    "not",
+    "what",
+    "when",
+    "where",
+    "who",
+    "why",
+    "without"
+  ],
+  "cleaning": "html,urls,emails,entities,unicode,lowercase,punctuation,digits,stopwords"
+}

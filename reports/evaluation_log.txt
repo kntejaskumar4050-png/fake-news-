@@ -1,0 +1,30 @@
+==========================================================================
+ FAKE NEWS DETECTOR — INDEPENDENT MODEL EVALUATION
+==========================================================================
+Test split: 5,865 articles | vocabulary: 20,000
+Decision threshold: 0.50
+
+Evaluating LSTM (lstm_model.keras) …
+  accuracy 0.9833 | precision 0.9877 | recall 0.9814 | f1 0.9845 | roc-auc 0.9932
+  confusion matrix: [[2647, 39], [59, 3120]]
+  matches training metrics: True (Δ=0.00e+00)
+  classification report:
+    FAKE: precision 0.978 recall 0.985 f1 0.982 support 2686.0
+    REAL: precision 0.988 recall 0.981 f1 0.985 support 3179.0
+Evaluating BiLSTM (bilstm_model.keras) …
+  accuracy 0.9990 | precision 0.9997 | recall 0.9984 | f1 0.9991 | roc-auc 0.9999
+  confusion matrix: [[2685, 1], [5, 3174]]
+  matches training metrics: True (Δ=0.00e+00)
+  classification report:
+    FAKE: precision 0.998 recall 1.000 f1 0.999 support 2686.0
+    REAL: precision 1.000 recall 0.998 f1 0.999 support 3179.0
+
+==========================================================================
+ COMPARISON
+==========================================================================
+ Model  Accuracy  Precision  Recall  F1-score  ROC-AUC  Parameters  ms/article
+  LSTM    0.9833     0.9877  0.9814    0.9845   0.9932     2611521       0.376
+BiLSTM    0.9990     0.9997  0.9984    0.9991   0.9999     2662977       0.425
+
+Report : /Users/snikhilsubhash/Downloads/DL PROJECT/reports/evaluation_report.json
+Charts : /Users/snikhilsubhash/Downloads/DL PROJECT/static/images

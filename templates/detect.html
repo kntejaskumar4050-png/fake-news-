@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Detection Workspace — FAKE NEWS DETECTOR{% endblock %}
+
+{% block content %}
+<section class="workspace">
+  <div class="container">
+    <div class="page-head reveal">
+      <div>
+        <span class="eyebrow eyebrow-dark">Detection workspace</span>
+        <h1>Analyse a news article</h1>
+        <p>Paste a headline, a paragraph or a full article. The selected network will classify it and explain its confidence.</p>
+      </div>
+      <div class="page-head-meta">
+        <span class="chip chip-neutral">
+          <svg class="icon"><use href="#i-cpu"/></svg>
+          {{ best_model_name }} · {{ '%.2f'|format((best_accuracy or 0) * 100) }}% test accuracy
+        </span>
+        <span class="chip chip-neutral">
+          <svg class="icon"><use href="#i-shield"/></svg>
+          Input stays on this server
+        </span>
+      </div>
+    </div>
+
+    <div class="workspace-grid">
+      <!-- ─────────────── INPUT PANEL ─────────────── -->
+      <section class="panel input-panel reveal" aria-labelledby="inputHeading">
+        <div class="panel-head">
+          <h2 id="inputHeading">News text</h2>
+          <span class="chip chip-soft">Required</span>
+        </div>
+
+        <form id="detectForm" novalidate>
+          <label class="sr-only" for="newsText">News headline or article text</label>
+          <div class="textarea-wrap">
+            <textarea id="newsText" name="text" rows="11"
+              maxlength="{{ max_input_chars }}"
+              placeholder="Example: Scientists publish new peer-reviewed findings on…&#10;&#10;Paste the full article for the most stable result."
+              aria-describedby="inputHelp" spellcheck="true"></textarea>
+            <div class="textarea-toolbar">
+              <span id="charCount" class="char-count">0 characters</span>
+              <button type="button" class="text-button" id="clearBtn">
+                <svg class="icon"><use href="#i-close"/></svg> Clear
+              </button>
+            </div>
+          </div>
+          <p class="form-hint" id="inputHelp">
+            Minimum {{ min_input_chars }} characters · maximum {{ '{:,}'.format(max_input_chars) }} characters ·
+            longer articles are truncated to the first 256 tokens.
+          </p>
+
+          <div class="sample-row">
+            <span class="sample-label">Try a sample</span>
+            <div class="sample-buttons">
+              <button type="button" class="chip chip-button" data-sample="policy">Policy</button>
+              <button type="button" class="chip chip-button" data-sample="consumer">Consumer claim</button>
+              <button type="button" class="chip chip-button" data-sample="world">World</button>
+            </div>
+          </div>
+          <p class="form-hint" style="margin-top:-12px">
+            Samples are genuine held-out articles from the training dataset, included for demonstration.
+          </p>
+
+          <fieldset class="model-picker">
+            <legend>Model</legend>
+            <div class="model-options">
+              {% for option in model_options %}
+                <label class="model-option">
+                  <input type="radio" name="model" value="{{ option.key }}"
+                         {{ 'checked' if option.key == default_model }}>
+                  <span class="model-option-body">
+                    <span class="model-option-name">{{ option.name }}</span>
+                    <span class="model-option-hint">{{ option.hint }}</span>
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <button class="btn btn-primary btn-lg btn-block" id="analyzeBtn" type="submit">
+            <span class="btn-label">
+              <svg class="icon"><use href="#i-scan"/></svg>
+              Analyze news
+            </span>
+            <span class="btn-loading" hidden>
+              <span class="spinner"></span> Analysing…
+            </span>
+          </button>
+
+          <p class="form-hint form-hint-center">
+            Predictions are pattern-based classifications, not fact-checking.
+          </p>
+        </form>
+      </section>
+
+      <!-- ─────────────── RESULT PANEL ─────────────── -->
+      <section class="panel result-panel reveal" id="resultPanel" aria-labelledby="resultHeading" aria-live="polite">
+        <div class="panel-head">
+          <h2 id="resultHeading">Analysis result</h2>
+          <span class="chip chip-soft" id="resultTimestamp">Not analysed yet</span>
+        </div>
+
+        <!-- empty state -->
+        <div class="result-empty" id="resultEmpty">
+          <div class="empty-radar" aria-hidden="true">
+            <span class="radar-ring r1"></span>
+            <span class="radar-ring r2"></span>
+            <span class="radar-ring r3"></span>
+            <svg class="icon"><use href="#i-scan"/></svg>
+          </div>
+          <h3>Awaiting analysis</h3>
+          <p>Your classification, confidence score and a per-model breakdown will appear here.</p>
+          <ul class="empty-points">
+            <li><svg class="icon"><use href="#i-check"/></svg> Verdict with confidence gauge</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> LSTM vs BiLSTM comparison</li>
+            <li><svg class="icon"><use href="#i-check"/></svg> Plain-language explanation</li>
+          </ul>
+        </div>
+
+        <!-- result state -->
+        <div class="result-content" id="resultContent" hidden>
+          <div class="verdict" id="verdictBanner">
+            <div class="verdict-info">
+              <span class="verdict-kicker" id="verdictKicker">Classification</span>
+              <h3 class="verdict-label" id="verdictLabel">—</h3>
+              <p class="verdict-sub" id="verdictSub">—</p>
+            </div>
+            <div class="gauge" id="confidenceGauge">
+              <svg viewBox="0 0 120 120" role="img" aria-label="Confidence gauge">
+                <circle class="gauge-track" cx="60" cy="60" r="52"></circle>
+                <circle class="gauge-value" id="gaugeCircle" cx="60" cy="60" r="52"
+                        stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+              </svg>
+              <div class="gauge-center">
+                <strong id="gaugeValue">0%</strong>
+                <span>confidence</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-section">
+            <h4>Why this result?</h4>
+            <p class="explanation" id="explanationText">—</p>
+          </div>
+
+          <div class="result-section">
+            <h4>Model breakdown</h4>
+            <div class="breakdown" id="modelBreakdown"></div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item"><span>Model used</span><strong id="metaModel">—</strong></div>
+            <div class="meta-item"><span>Tokens analysed</span><strong id="metaTokens">—</strong></div>
+            <div class="meta-item"><span>Vocabulary coverage</span><strong id="metaCoverage">—</strong></div>
+            <div class="meta-item"><span>Processing time</span><strong id="metaLatency">—</strong></div>
+          </div>
+
+          <div class="reliability" id="reliabilityNote">
+            <svg class="icon"><use href="#i-info"/></svg>
+            <p id="reliabilityText">—</p>
+          </div>
+
+          <div class="result-actions">
+            <button type="button" class="btn btn-primary" id="anotherBtn">
+              <svg class="icon"><use href="#i-refresh"/></svg>
+              Analyze another article
+            </button>
+            <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">View dashboard</a>
+          </div>
+
+          <p class="result-disclaimer" id="disclaimerText">{{ disclaimer }}</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- recent predictions -->
+    <section class="recent-section reveal">
+      <div class="recent-head">
+        <div>
+          <h2>Recent analyses</h2>
+          <p class="muted">Latest predictions stored on this server.</p>
+        </div>
+        <a class="link-arrow" href="{{ url_for('dashboard') }}">Open dashboard <svg class="icon"><use href="#i-arrow"/></svg></a>
+      </div>
+      <div class="recent-list" id="recentList">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/detect.js') }}"></script>
+{% endblock %}

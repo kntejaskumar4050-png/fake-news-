@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — FAKE NEWS DETECTOR{% endblock %}
+
+{% block content %}
+<section class="workspace dashboard">
+  <div class="container">
+    <div class="page-head reveal">
+      <div>
+        <span class="eyebrow eyebrow-dark">Analytics</span>
+        <h1>Prediction dashboard</h1>
+        <p>Live statistics from predictions stored on this server, alongside the models' verified test-set performance.</p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn btn-ghost btn-sm" id="refreshBtn">
+          <svg class="icon"><use href="#i-refresh"/></svg> Refresh
+        </button>
+        <button class="btn btn-danger-ghost btn-sm" id="clearHistoryBtn">
+          <svg class="icon"><use href="#i-trash"/></svg> Clear history
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="kpi-grid">
+      <article class="kpi-card reveal">
+        <div class="kpi-icon kpi-icon-navy"><svg class="icon"><use href="#i-chart"/></svg></div>
+        <span class="kpi-label">Total predictions</span>
+        <strong class="kpi-value" id="kpiTotal">0</strong>
+        <span class="kpi-foot" id="kpiToday">0 today</span>
+      </article>
+      <article class="kpi-card reveal">
+        <div class="kpi-icon kpi-icon-red"><svg class="icon"><use href="#i-alert"/></svg></div>
+        <span class="kpi-label">Fake news detected</span>
+        <strong class="kpi-value" id="kpiFake">0</strong>
+        <span class="kpi-foot"><span class="dot dot-red"></span><span id="kpiFakePct">0%</span> of all predictions</span>
+      </article>
+      <article class="kpi-card reveal">
+        <div class="kpi-icon kpi-icon-green"><svg class="icon"><use href="#i-shield"/></svg></div>
+        <span class="kpi-label">Real news detected</span>
+        <strong class="kpi-value" id="kpiReal">0</strong>
+        <span class="kpi-foot"><span class="dot dot-green"></span><span id="kpiRealPct">0%</span> of all predictions</span>
+      </article>
+      <article class="kpi-card reveal">
+        <div class="kpi-icon kpi-icon-blue"><svg class="icon"><use href="#i-brain"/></svg></div>
+        <span class="kpi-label">Average confidence</span>
+        <strong class="kpi-value" id="kpiConfidence">0%</strong>
+        <span class="kpi-foot">Across stored predictions</span>
+      </article>
+      <article class="kpi-card reveal">
+        <div class="kpi-icon kpi-icon-blue"><svg class="icon"><use href="#i-cpu"/></svg></div>
+        <span class="kpi-label">Model test accuracy</span>
+        <strong class="kpi-value">{{ '%.2f'|format((best_accuracy or 0) * 100) }}%</strong>
+        <span class="kpi-foot">{{ best_model_name }} · held-out test split</span>
+      </article>
+      <article class="kpi-card reveal">
+        <div class="kpi-icon kpi-icon-navy"><svg class="icon"><use href="#i-history"/></svg></div>
+        <span class="kpi-label">Avg. response time</span>
+        <strong class="kpi-value" id="kpiLatency">0<small>ms</small></strong>
+        <span class="kpi-foot">End-to-end inference</span>
+      </article>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <article class="panel chart-panel reveal">
+        <div class="panel-head">
+          <div>
+            <h2>Prediction activity</h2>
+            <p class="muted">Daily volume for the last 7 days</p>
+          </div>
+          <span class="chip chip-soft">Live</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="trendChart" height="220"></canvas></div>
+      </article>
+
+      <article class="panel chart-panel reveal">
+        <div class="panel-head">
+          <div>
+            <h2>Verdict split</h2>
+            <p class="muted">Fake vs real classifications</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrap chart-doughnut"><canvas id="distributionChart" height="220"></canvas></div>
+        <div class="legend" id="distributionLegend">
+          <span><i class="legend-dot legend-red"></i> Fake <b id="legendFake">0</b></span>
+          <span><i class="legend-dot legend-green"></i> Real <b id="legendReal">0</b></span>
+        </div>
+      </article>
+
+      <article class="panel chart-panel reveal">
+        <div class="panel-head">
+          <div>
+            <h2>Confidence distribution</h2>
+            <p class="muted">How decisive stored predictions are</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="confidenceChart" height="220"></canvas></div>
+      </article>
+
+      <article class="panel chart-panel reveal">
+        <div class="panel-head">
+          <div>
+            <h2>Architecture comparison</h2>
+            <p class="muted">Verified test-set accuracy</p>
+          </div>
+          <span class="chip chip-soft">Static benchmark</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="accuracyChart" height="220"></canvas></div>
+      </article>
+    </div>
+
+    <!-- Model performance table -->
+    <section class="panel table-panel reveal">
+      <div class="panel-head">
+        <div>
+          <h2>Model performance</h2>
+          <p class="muted">Computed by <code>train_model.py</code> on the held-out 15% test split</p>
+        </div>
+        <span class="chip chip-soft">Raw metrics</span>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Accuracy</th>
+              <th>Precision</th>
+              <th>Recall</th>
+              <th>F1-score</th>
+              <th>ROC-AUC</th>
+              <th>Parameters</th>
+              <th>Epochs</th>
+            </tr>
+          </thead>
+          <tbody id="modelTableBody">
+            {% for key, model in model_metrics.items() %}
+              <tr>
+                <td>
+                  <span class="model-tag">{{ model.display_name }}</span>
+                  {% if best_model_key == key %}<span class="badge badge-best">Best</span>{% endif %}
+                </td>
+                <td>{{ '%.2f'|format(model.accuracy * 100) if model.accuracy is not none else '—' }}{{ '%' if model.accuracy is not none }}</td>
+                <td>{{ '%.2f'|format(model.precision * 100) if model.precision is not none else '—' }}{{ '%' if model.precision is not none }}</td>
+                <td>{{ '%.2f'|format(model.recall * 100) if model.recall is not none else '—' }}{{ '%' if model.recall is not none }}</td>
+                <td>{{ '%.2f'|format(model.f1_score * 100) if model.f1_score is not none else '—' }}{{ '%' if model.f1_score is not none }}</td>
+                <td>{{ '%.4f'|format(model.roc_auc) if model.roc_auc is not none else '—' }}</td>
+                <td>{{ '{:,}'.format(model.parameters) if model.parameters else '—' }}</td>
+                <td>{{ model.epochs_trained if model.epochs_trained else '—' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="8" class="table-empty">No metrics found. Run <code>python train_model.py</code>.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section class="panel table-panel reveal">
+      <div class="panel-head">
+        <div>
+          <h2>Prediction history</h2>
+          <p class="muted">Most recent analyses, newest first</p>
+        </div>
+        <div class="table-controls">
+          <label class="select-wrap">
+            <span class="sr-only">Filter by verdict</span>
+            <select id="historyFilter">
+              <option value="">All verdicts</option>
+              <option value="FAKE">Fake only</option>
+              <option value="REAL">Real only</option>
+            </select>
+          </label>
+          <span class="chip chip-soft" id="historyCount">0 rows</span>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table history-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Article preview</th>
+              <th>Verdict</th>
+              <th>Confidence</th>
+              <th>Model</th>
+              <th>Words</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="7" class="table-empty">Loading history…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <p class="muted">Showing the latest <span id="historyLimit">20</span> predictions. Data is stored in <code>database/predictions.db</code>.</p>
+      </div>
+    </section>
+
+    <p class="dashboard-note reveal">
+      <svg class="icon"><use href="#i-info"/></svg>
+      Model accuracy figures come from the held-out test split used during training. They are not
+      calculated from the predictions listed above, and high confidence does not mean an article is factually correct.
+    </p>
+  </div>
+</section>
+
+<script id="modelMetrics" type="application/json">{{ model_metrics|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

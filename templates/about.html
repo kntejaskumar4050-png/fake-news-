@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}About the Project — FAKE NEWS DETECTOR{% endblock %}
+
+{% block content %}
+<section class="about-hero">
+  <div class="hero-glow hero-glow-2"></div>
+  <div class="container about-hero-inner">
+    <span class="eyebrow eyebrow-dark reveal">About the project</span>
+    <h1 class="reveal">A deep learning approach to<br><span class="gradient-text">news credibility signals.</span></h1>
+    <p class="about-lead reveal">
+      Fake news spreads faster than corrections. This final-year engineering project explores whether
+      recurrent neural networks can learn the stylistic fingerprints that separate fabricated
+      articles from professional reporting — and how honestly those predictions can be presented.
+    </p>
+    <div class="about-meta reveal">
+      <div><span>Project type</span><strong>Deep Learning · NLP</strong></div>
+      <div><span>Dataset</span><strong>Kaggle Fake &amp; Real News</strong></div>
+      <div><span>Architectures</span><strong>LSTM · BiLSTM</strong></div>
+      <div><span>Deployment</span><strong>Flask + SQLite</strong></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container two-col">
+    <div class="reveal">
+      <span class="eyebrow eyebrow-dark">Problem statement</span>
+      <h2>Why build this?</h2>
+      <p class="prose">
+        Misinformation is cheap to produce and expensive to debunk. Manual fact-checking does not scale
+        to the volume of content published every hour. At the same time, fabricated articles often share
+        detectable stylistic traits: sensational claims, unusual vocabulary, repetitive phrasing and
+        structural differences from wire-service reporting.
+      </p>
+      <p class="prose">
+        This project tests the hypothesis that a sequence model can learn those traits from labelled data.
+        It is deliberately framed as a <strong>pattern detector</strong>, not an arbiter of truth: the goal is
+        to build, evaluate and explain an end-to-end machine learning system, and to communicate its
+        limits as clearly as its results.
+      </p>
+    </div>
+    <div class="reveal">
+      <span class="eyebrow eyebrow-dark">Objectives</span>
+      <h2>What the system delivers</h2>
+      <ul class="check-list">
+        <li><svg class="icon"><use href="#i-check"/></svg> Clean and deduplicate a real labelled news corpus.</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Build a leakage-free preprocessing and tokenisation pipeline.</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Train LSTM and BiLSTM classifiers with regularisation and early stopping.</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Evaluate both models with accuracy, precision, recall, F1, ROC-AUC and confusion matrices.</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Serve real-time predictions through a documented Flask API.</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Persist predictions in SQLite and visualise usage statistics.</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Present confidence responsibly, with explicit reliability cues.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tinted" id="methodology">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow eyebrow-dark">Methodology</span>
+      <h2>How the models were built</h2>
+      <p>A reproducible pipeline from raw CSV files to deployed inference artifacts.</p>
+    </div>
+
+    <ol class="timeline">
+      <li class="reveal">
+        <span class="timeline-step">01</span>
+        <div class="timeline-body">
+          <h3>Dataset assembly</h3>
+          <p><code>Fake.csv</code> and <code>True.csv</code> are loaded with Pandas, labelled (0 = fake, 1 = real),
+            combined and shuffled with a fixed seed. Missing rows, exact duplicates and unusable short texts are removed.</p>
+          <div class="inline-stats">
+            <span>{{ '{:,}'.format(dataset_info.get('total_clean', 0) or 0) }} usable articles</span>
+            <span>{{ '{:,}'.format(dataset_info.get('fake', 0) or 0) }} fake</span>
+            <span>{{ '{:,}'.format(dataset_info.get('real', 0) or 0) }} real</span>
+          </div>
+        </div>
+      </li>
+      <li class="reveal">
+        <span class="timeline-step">02</span>
+        <div class="timeline-body">
+          <h3>Leakage-free preprocessing</h3>
+          <p>Title and body are merged, HTML and URLs stripped, unicode normalised, lowercased, stripped of punctuation
+            and digits, tokenised and filtered with NLTK stopwords (negations retained). Cleaning is stateless, so it can
+            run before splitting. The dataset is split <strong>70 / 15 / 15</strong> — stratified — and the Keras
+            <code>Tokenizer</code> is fitted <strong>only on the training split</strong>.</p>
+          <div class="inline-stats">
+            <span>Train {{ '{:,}'.format(dataset_info.get('train', 0) or 0) }}</span>
+            <span>Validation {{ '{:,}'.format(dataset_info.get('validation', 0) or 0) }}</span>
+            <span>Test {{ '{:,}'.format(dataset_info.get('test', 0) or 0) }}</span>
+            <span>Vocab {{ '{:,}'.format(dataset_info.get('vocab_size', 0) or 0) }}</span>
+          </div>
+        </div>
+      </li>
+      <li class="reveal">
+        <span class="timeline-step">03</span>
+        <div class="timeline-body">
+          <h3>Sequence encoding</h3>
+          <p>Each article becomes a sequence of integer token IDs capped at <strong>{{ dataset_info.get('max_len', 256) }} tokens</strong>,
+            padded post-sequence. The embedding layer learns a 128-dimensional vector per token during training.</p>
+        </div>
+      </li>
+      <li class="reveal">
+        <span class="timeline-step">04</span>
+        <div class="timeline-body">
+          <h3>Model training</h3>
+          <p>Both models use the same embedding, dropout and dense head. The LSTM reads left-to-right; the BiLSTM reads in
+            both directions. Training uses Adam, binary cross-entropy, batch size 128, early stopping on
+            validation loss (patience 3), learning-rate reduction and best-checkpoint restore.</p>
+          <div class="arch-diagram">
+            <span>Embedding<br><small>128-d</small></span>
+            <svg class="icon"><use href="#i-arrow"/></svg>
+            <span>LSTM / BiLSTM<br><small>64 units</small></span>
+            <svg class="icon"><use href="#i-arrow"/></svg>
+            <span>Dropout<br><small>0.40</small></span>
+            <svg class="icon"><use href="#i-arrow"/></svg>
+            <span>Dense<br><small>32 · ReLU</small></span>
+            <svg class="icon"><use href="#i-arrow"/></svg>
+            <span>Output<br><small>1 · sigmoid</small></span>
+          </div>
+        </div>
+      </li>
+      <li class="reveal">
+        <span class="timeline-step">05</span>
+        <div class="timeline-body">
+          <h3>Evaluation &amp; deployment</h3>
+          <p>Both checkpoints are scored once on the untouched test split. Metrics, confusion matrices, training curves and
+            the comparison table are written to <code>models/metrics.json</code> and <code>static/images/</code>. The best model
+            is deployed behind the Flask API, with the tokenizer and preprocessing configuration saved alongside it.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="section" id="results">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow eyebrow-dark">Results</span>
+      <h2>Measured, not claimed</h2>
+      <p>All numbers below are read from the metrics file produced by the training run.</p>
+    </div>
+
+    <div class="results-table-wrap panel reveal">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>ROC-AUC</th><th>Params</th><th>Epochs</th></tr>
+          </thead>
+          <tbody>
+            {% for key, model in model_metrics.items() %}
+              <tr>
+                <td><span class="model-tag">{{ model.display_name }}</span>{% if best_model_key == key %} <span class="badge badge-best">Best</span>{% endif %}</td>
+                <td>{{ '%.2f'|format(model.accuracy * 100) if model.accuracy is not none else '—' }}{{ '%' if model.accuracy is not none }}</td>
+                <td>{{ '%.2f'|format(model.precision * 100) if model.precision is not none else '—' }}{{ '%' if model.precision is not none }}</td>
+                <td>{{ '%.2f'|format(model.recall * 100) if model.recall is not none else '—' }}{{ '%' if model.recall is not none }}</td>
+                <td>{{ '%.2f'|format(model.f1_score * 100) if model.f1_score is not none else '—' }}{{ '%' if model.f1_score is not none }}</td>
+                <td>{{ '%.4f'|format(model.roc_auc) if model.roc_auc else '—' }}</td>
+                <td>{{ '{:,}'.format(model.parameters) if model.parameters else '—' }}</td>
+                <td>{{ model.epochs_trained if model.epochs_trained else '—' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="8" class="table-empty">Run <code>python train_model.py</code> to generate metrics.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="figure-grid">
+      <figure class="panel figure-card reveal">
+        <figcaption>Training history — LSTM</figcaption>
+        <img src="{{ url_for('static', filename='images/training_lstm.png') }}" alt="LSTM training and validation loss and accuracy curves">
+      </figure>
+      <figure class="panel figure-card reveal">
+        <figcaption>Training history — BiLSTM</figcaption>
+        <img src="{{ url_for('static', filename='images/training_bilstm.png') }}" alt="BiLSTM training and validation loss and accuracy curves">
+      </figure>
+      <figure class="panel figure-card reveal">
+        <figcaption>Confusion matrix — LSTM</figcaption>
+        <img src="{{ url_for('static', filename='images/confusion_matrix_lstm.png') }}" alt="LSTM confusion matrix on test data">
+      </figure>
+      <figure class="panel figure-card reveal">
+        <figcaption>Confusion matrix — BiLSTM</figcaption>
+        <img src="{{ url_for('static', filename='images/confusion_matrix_bilstm.png') }}" alt="BiLSTM confusion matrix on test data">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tinted" id="limitations">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow eyebrow-dark">Limitations &amp; ethics</span>
+      <h2>What this model cannot tell you</h2>
+      <p>Academic honesty matters more than an impressive demo. These are real constraints, not fine print.</p>
+    </div>
+    <div class="limit-grid">
+      <article class="limit-card reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <h3>It is not a fact-checker</h3>
+        <p>The output is a classification of writing style learned from one corpus. A high confidence score means the text resembles one class in that corpus — not that its claims are true.</p>
+      </article>
+      <article class="limit-card reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <h3>Source and topic bias</h3>
+        <p>Fake articles in the dataset come largely from a set of alternative outlets and real articles largely from Reuters. The model can learn publisher-specific cues and may not generalise to new domains.</p>
+      </article>
+      <article class="limit-card reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <h3>English &amp; length dependent</h3>
+        <p>Training data is English-only and truncated at 256 tokens. Very short inputs, satire, translations and mixed-format content fall outside the model's competence.</p>
+      </article>
+      <article class="limit-card reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <h3>Dataset staleness</h3>
+        <p>The corpus covers 2015–2018. Vocabulary and writing conventions shift, so performance on modern content should be re-validated, not assumed.</p>
+      </article>
+      <article class="limit-card reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <h3>No causal explanation</h3>
+        <p>Confidence and per-model agreement are provided, but the network does not cite evidence. Advisory output must never be treated as a verdict on a publisher.</p>
+      </article>
+      <article class="limit-card reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <h3>Misuse risk</h3>
+        <p>Automated labels can amplify error at scale. The interface intentionally frames results as signals, surfaces reliability warnings and stores no personal data.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow eyebrow-dark">Technology</span>
+      <h2>System architecture</h2>
+      <p>Classic three-tier design with a local deep-learning inference service.</p>
+    </div>
+
+    <div class="stack-grid reveal">
+      {% set stack = [
+        ('Frontend', 'HTML5 · CSS3 · Vanilla JavaScript · Chart.js'),
+        ('Web layer', 'Flask · Jinja2 · REST JSON API'),
+        ('Deep learning', 'TensorFlow 2.x · Keras · LSTM / BiLSTM'),
+        ('NLP', 'NLTK stopwords · regex tokenisation · Keras Tokenizer'),
+        ('Data', 'Pandas · NumPy · Scikit-learn'),
+        ('Storage', 'SQLite (predictions) · HDF5/Keras (models) · Pickle (tokenizer)'),
+        ('Visualisation', 'Matplotlib · Seaborn · Chart.js'),
+        ('Evaluation', 'Accuracy · Precision · Recall · F1 · ROC-AUC · Confusion matrix')
+      ] %}
+      {% for name, detail in stack %}
+        <div class="stack-item">
+          <span>{{ name }}</span>
+          <strong>{{ detail }}</strong>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="arch-flow reveal">
+      <div class="arch-box"><span>Browser</span><small>HTML/CSS/JS</small></div>
+      <div class="arch-arrow">JSON / HTTP</div>
+      <div class="arch-box arch-box-primary"><span>Flask API</span><small>/predict · /dashboard · /history</small></div>
+      <div class="arch-arrow">tokens</div>
+      <div class="arch-box"><span>Preprocessing</span><small>clean · tokenise · pad</small></div>
+      <div class="arch-arrow">sequences</div>
+      <div class="arch-box arch-box-accent"><span>Keras models</span><small>LSTM · BiLSTM</small></div>
+      <div class="arch-arrow">verdict</div>
+      <div class="arch-box"><span>SQLite</span><small>prediction history</small></div>
+    </div>
+
+    <div class="project-info reveal">
+      <div><span>Project</span><strong>{{ app_name }}</strong></div>
+      <div><span>Version</span><strong>{{ app_version }}</strong></div>
+      <div><span>Dataset</span><strong>Kaggle Fake and Real News Dataset</strong></div>
+      <div><span>Files</span><strong>Fake.csv · True.csv</strong></div>
+      <div><span>Framework</span><strong>TensorFlow / Keras</strong></div>
+      <div><span>Storage</span><strong>models/*.keras · tokenizer.pkl · predictions.db</strong></div>
+    </div>
+
+    <div class="callout callout-strong reveal">
+      <svg class="icon"><use href="#i-shield"/></svg>
+      <div>
+        <strong>Responsible-use statement</strong>
+        <p>This system was built for academic research and demonstration. It must not be used to label
+          individuals, outlets or claims as truthful or false without human verification. Treat every
+          output as one weak signal among many.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

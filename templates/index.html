@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}FAKE NEWS DETECTOR — Deep Learning News Classification{% endblock %}
+
+{% block content %}
+<!-- ══════════════════════════ HERO ══════════════════════════ -->
+<section class="hero">
+  <div class="hero-glow hero-glow-1"></div>
+  <div class="hero-glow hero-glow-2"></div>
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow eyebrow-dark reveal">
+        <svg class="icon"><use href="#i-sparkle"/></svg>
+        Deep learning · NLP · Explainable classification
+      </span>
+      <h1 class="reveal">
+        Know what you're reading
+        <span class="gradient-text">before you share it.</span>
+      </h1>
+      <p class="hero-lead reveal">
+        Paste any headline or article and two recurrent neural networks — an
+        <strong>LSTM</strong> and a <strong>BiLSTM</strong> — analyse its language
+        patterns, returning a classification, a confidence score and an honest
+        explanation of what that score means.
+      </p>
+      <div class="hero-actions reveal">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('detect') }}">
+          <svg class="icon"><use href="#i-scan"/></svg>
+          Start detection
+        </a>
+        <a class="btn btn-ghost btn-lg" href="#how-it-works">
+          How it works
+          <svg class="icon"><use href="#i-arrow"/></svg>
+        </a>
+      </div>
+      <ul class="hero-trust reveal">
+        <li><svg class="icon"><use href="#i-check"/></svg> Trained on {{ '{:,}'.format(dataset_info.get('total_clean', 0) or 0) }} real articles</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> No fabricated predictions</li>
+        <li><svg class="icon"><use href="#i-check"/></svg> Confidence explained</li>
+      </ul>
+    </div>
+
+    <div class="hero-visual reveal" aria-hidden="true">
+      <div class="orb"></div>
+      <div class="scan-card">
+        <div class="scan-card-top">
+          <span class="live-dot"></span>
+          <span>LIVE ANALYSIS</span>
+          <span class="scan-id">Article #{{ '%04d'|format((stats.total_predictions or 0) + 1) }}</span>
+        </div>
+        <div class="scan-lines">
+          <span style="--w: 96%"></span>
+          <span style="--w: 88%"></span>
+          <span style="--w: 72%"></span>
+          <span style="--w: 91%"></span>
+          <span style="--w: 54%"></span>
+        </div>
+        <div class="scan-beam"></div>
+        <div class="scan-verdict">
+          <div>
+            <span class="mini-label">Verdict</span>
+            <strong>Pattern classified</strong>
+          </div>
+          <div class="mini-ring">
+            <svg viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="18" class="ring-track"/>
+              <circle cx="22" cy="22" r="18" class="ring-value"/>
+            </svg>
+            <span>AI</span>
+          </div>
+        </div>
+        <div class="scan-tags">
+          <span>BiLSTM</span><span>256 tokens</span><span>128-d embeddings</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ STATS ══════════════════════════ -->
+<section class="stats-strip">
+  <div class="container stats-grid">
+    <div class="stat reveal">
+      <span class="stat-value">{{ '%.2f'|format((best_accuracy or 0) * 100) }}<small>%</small></span>
+      <span class="stat-label">Test accuracy <em>{{ best_model_name }}</em></span>
+    </div>
+    <div class="stat reveal">
+      <span class="stat-value">{{ '{:,}'.format(dataset_info.get('total_clean', 0) or 0) }}</span>
+      <span class="stat-label">Labelled articles</span>
+    </div>
+    <div class="stat reveal">
+      <span class="stat-value">{{ '{:,}'.format(dataset_info.get('vocab_size', 0) or 0) }}</span>
+      <span class="stat-label">Vocabulary size</span>
+    </div>
+    <div class="stat reveal">
+      <span class="stat-value">2</span>
+      <span class="stat-label">Deep learning models</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ HOW IT WORKS ══════════════════════════ -->
+<section class="section" id="how-it-works">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow eyebrow-dark">Pipeline</span>
+      <h2>From raw text to a reasoned verdict</h2>
+      <p>Every analysis runs through the same reproducible pipeline used during training — no shortcuts, no random guesses.</p>
+    </div>
+
+    <div class="steps-grid">
+      <article class="step-card reveal">
+        <span class="step-index">01</span>
+        <div class="step-icon"><svg class="icon"><use href="#i-scan"/></svg></div>
+        <h3>Ingest &amp; clean</h3>
+        <p>The article is stripped of HTML, URLs and special characters, lowercased, tokenised and filtered for stopwords before anything touches the model.</p>
+        <ul class="mini-list">
+          <li>HTML &amp; entity removal</li>
+          <li>Lowercase + punctuation cleanup</li>
+          <li>NLTK stopword filtering</li>
+        </ul>
+      </article>
+
+      <article class="step-card reveal">
+        <span class="step-index">02</span>
+        <div class="step-icon"><svg class="icon"><use href="#i-brain"/></svg></div>
+        <h3>Neural analysis</h3>
+        <p>Tokens are converted to integer IDs using a vocabulary fitted only on training data, padded to 256 steps and passed through an embedding + LSTM network.</p>
+        <ul class="mini-list">
+          <li>20,000-word vocabulary</li>
+          <li>128-dimensional embeddings</li>
+          <li>LSTM &amp; BiLSTM classifiers</li>
+        </ul>
+      </article>
+
+      <article class="step-card reveal">
+        <span class="step-index">03</span>
+        <div class="step-icon"><svg class="icon"><use href="#i-chart"/></svg></div>
+        <h3>Measure &amp; explain</h3>
+        <p>The sigmoid output becomes a class and a confidence score. You also see both models' outputs, token coverage and a plain-language explanation.</p>
+        <ul class="mini-list">
+          <li>Confidence + decision margin</li>
+          <li>Per-model comparison</li>
+          <li>Stored history &amp; analytics</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ MODELS ══════════════════════════ -->
+<section class="section section-tinted" id="models">
+  <div class="container">
+    <div class="section-head section-head-row reveal">
+      <div>
+        <span class="eyebrow eyebrow-dark">Two architectures</span>
+        <h2>LSTM vs BiLSTM</h2>
+        <p>Both models share the same embedding layer and training split. The only architectural difference is the direction in which the sequence is read.</p>
+      </div>
+      <a class="btn btn-ghost" href="{{ url_for('about') }}#methodology">Read the methodology</a>
+    </div>
+
+    <div class="compare-grid">
+      {% set model_order = [('lstm', 'LSTM', 'Single-directional recurrent network that reads the article from left to right, retaining context from earlier tokens.'), ('bilstm', 'Bidirectional LSTM', 'Reads the article forwards and backwards, capturing context from both sides of every word.')] %}
+      {% for key, name, desc in model_order %}
+        {% set m = model_metrics.get(key, {}) %}
+        <article class="model-card reveal {{ 'is-best' if best_model_key == key }}">
+          {% if best_model_key == key %}<span class="badge badge-best">Best performing</span>{% endif %}
+          <h3>{{ name }}</h3>
+          <p class="model-desc">{{ desc }}</p>
+
+          <div class="model-metrics">
+            {% for metric_key, metric_label in [('accuracy', 'Accuracy'), ('f1_score', 'F1-score'), ('precision', 'Precision'), ('recall', 'Recall')] %}
+              {% set value = m.get(metric_key) %}
+              <div class="metric-row">
+                <div class="metric-row-head">
+                  <span>{{ metric_label }}</span>
+                  <strong>{{ '%.2f'|format(value * 100) if value is not none else '—' }}{{ '%' if value is not none }}</strong>
+                </div>
+                <div class="progress"><span style="width: {{ '%.2f'|format((value or 0) * 100) }}%"></span></div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <dl class="model-specs">
+            <div><dt>Parameters</dt><dd>{{ '{:,}'.format(m.get('parameters')) if m.get('parameters') else '—' }}</dd></div>
+            <div><dt>Epochs trained</dt><dd>{{ m.get('epochs_trained', '—') }}</dd></div>
+            <div><dt>ROC-AUC</dt><dd>{{ '%.4f'|format(m.get('roc_auc')) if m.get('roc_auc') else '—' }}</dd></div>
+          </dl>
+          <a class="link-arrow" href="{{ url_for('detect') }}?model={{ key }}">Try the {{ name }} <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+      {% endfor %}
+    </div>
+
+    <figure class="chart-figure reveal">
+      <div class="chart-figure-head">
+        <h3>Held-out test set performance</h3>
+        <span class="muted">Generated directly by <code>train_model.py</code></span>
+      </div>
+      <img src="{{ url_for('static', filename='images/model_comparison.png') }}"
+           alt="Bar chart comparing LSTM and BiLSTM accuracy, precision, recall, F1-score and ROC-AUC"
+           onerror="this.closest('figure').classList.add('is-missing')">
+      <div class="chart-missing">
+        <svg class="icon"><use href="#i-chart"/></svg>
+        Performance charts appear here after training.
+      </div>
+      <figcaption>Metrics are computed on the 15% test split that was never used for training or validation.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ══════════════════════════ FEATURES ══════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow eyebrow-dark">Built for real use</span>
+      <h2>Everything around the model, too</h2>
+      <p>A complete system: inference API, persistence, analytics and a responsive interface.</p>
+    </div>
+    <div class="feature-grid">
+      <article class="feature-card reveal">
+        <div class="feature-icon"><svg class="icon"><use href="#i-brain"/></svg></div>
+        <h3>Dual-model inference</h3>
+        <p>Run the LSTM, the BiLSTM, or an ensemble that averages both probabilities — then compare each model's verdict side by side.</p>
+      </article>
+      <article class="feature-card reveal">
+        <div class="feature-icon"><svg class="icon"><use href="#i-chart"/></svg></div>
+        <h3>Live analytics</h3>
+        <p>Prediction totals, fake/real split, confidence distribution and a seven-day trend, all computed from your stored predictions.</p>
+      </article>
+      <article class="feature-card reveal">
+        <div class="feature-icon"><svg class="icon"><use href="#i-database"/></svg></div>
+        <h3>SQLite history</h3>
+        <p>Every classification is persisted with its text preview, verdict, confidence, model and latency — reviewable and clearable.</p>
+      </article>
+      <article class="feature-card reveal">
+        <div class="feature-icon"><svg class="icon"><use href="#i-shield"/></svg></div>
+        <h3>Honest by design</h3>
+        <p>Confidence is presented as model certainty, never as factual truth. Short inputs and low token coverage trigger an explicit reliability warning.</p>
+      </article>
+    </div>
+
+    <div class="callout reveal">
+      <svg class="icon"><use href="#i-info"/></svg>
+      <div>
+        <strong>What this system does — and does not do</strong>
+        <p>
+          The classifier learns statistical patterns that distinguish articles in its training
+          corpus. It can be fooled, and it cannot verify claims, sources or events.
+          A “REAL” verdict is not a guarantee of accuracy; always consult primary sources.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ CTA ══════════════════════════ -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-card reveal">
+      <div>
+        <h2>Put a headline to the test.</h2>
+        <p>No sign-up, no tracking. Paste an article and see what the network thinks — including why.</p>
+      </div>
+      <a class="btn btn-light btn-lg" href="{{ url_for('detect') }}">
+        Analyse a news article
+        <svg class="icon"><use href="#i-arrow"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}
