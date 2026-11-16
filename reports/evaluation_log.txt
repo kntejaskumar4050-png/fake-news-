@@ -26,5 +26,5 @@ Evaluating BiLSTM (bilstm_model.keras) …
   LSTM    0.9833     0.9877  0.9814    0.9845   0.9932     2611521       0.376
 BiLSTM    0.9990     0.9997  0.9984    0.9991   0.9999     2662977       0.425
 
-Report : /Users/snikhilsubhash/Downloads/DL PROJECT/reports/evaluation_report.json
-Charts : /Users/snikhilsubhash/Downloads/DL PROJECT/static/images
+Report : reports/evaluation_report.json
+Charts : static/images
